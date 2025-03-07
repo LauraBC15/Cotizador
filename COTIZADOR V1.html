@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Cotizaciones</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+    <div class="max-w-4xl mx-auto bg-gray-800 p-6 rounded-lg">
+        <h1 class="text-2xl font-bold mb-4 text-center">Generador de Cotizaciones</h1>
+        
+        <div class="mb-4">
+            <label class="block mb-1">Nombre del Cliente</label>
+            <input type="text" id="cliente" class="w-full p-2 rounded bg-gray-700">
+        </div>
+        <div class="mb-4">
+            <label class="block mb-1">Fecha</label>
+            <input type="date" id="fecha" class="w-full p-2 rounded bg-gray-700">
+        </div>
+        
+        <table class="w-full text-left mb-4">
+            <thead>
+                <tr class="bg-gray-700">
+                    <th class="p-2">Producto/Servicio</th>
+                    <th class="p-2">Cantidad</th>
+                    <th class="p-2">Precio Unitario</th>
+                    <th class="p-2">IVA</th>
+                    <th class="p-2">Total</th>
+                    <th class="p-2">Acción</th>
+                </tr>
+            </thead>
+            <tbody id="productos"></tbody>
+        </table>
+        <button onclick="agregarLinea()" class="bg-blue-600 px-4 py-2 rounded-md mb-4">Agregar Producto/Servicio</button>
+        
+        <div class="text-right">
+            <p>Subtotal: <span id="subtotal">$0.00</span></p>
+            <p>IVA: <span id="iva">$0.00</span></p>
+            <p class="text-lg font-bold">Total: <span id="total">$0.00</span></p>
+        </div>
+        
+        <div class="mb-4">
+            <label class="block mb-1">Notas/Condiciones</label>
+            <textarea id="notas" class="w-full p-2 rounded bg-gray-700"></textarea>
+        </div>
+        
+        <button onclick="generarPDF()" class="bg-green-600 px-4 py-2 rounded-md">Generar PDF</button>
+    </div>
+    
+    <script>
+        function agregarLinea() {
+            let tbody = document.getElementById("productos");
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td><input type="text" class="w-full p-2 rounded bg-gray-700"></td>
+                <td><input type="number" class="w-full p-2 rounded bg-gray-700" oninput="calcularTotal()"></td>
+                <td><input type="number" class="w-full p-2 rounded bg-gray-700" oninput="calcularTotal()"></td>
+                <td class="text-center"><input type="checkbox" onchange="calcularTotal()"></td>
+                <td class="total-line p-2">$0.00</td>
+                <td><button onclick="eliminarLinea(this)" class="text-red-400">❌</button></td>
+            `;
+            tbody.appendChild(row);
+        }
+        
+        function eliminarLinea(button) {
+            button.parentElement.parentElement.remove();
+            calcularTotal();
+        }
+        
+        function calcularTotal() {
+            let filas = document.querySelectorAll("#productos tr");
+            let subtotal = 0;
+            let iva = 0;
+            filas.forEach(fila => {
+                let cantidad = parseFloat(fila.children[1].children[0].value) || 0;
+                let precio = parseFloat(fila.children[2].children[0].value) || 0;
+                let aplicaIva = fila.children[3].children[0].checked;
+                let total = cantidad * precio;
+                if (aplicaIva) iva += total * 0.16;
+                subtotal += total;
+                fila.children[4].textContent = `$${total.toFixed(2)}`;
+            });
+            document.getElementById("subtotal").textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById("iva").textContent = `$${iva.toFixed(2)}`;
+            document.getElementById("total").textContent = `$${(subtotal + iva).toFixed(2)}`;
+        }
+        
+        function generarPDF() {
+            const { jsPDF } = window.jspdf;
+            let doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text("Cotización", 20, 20);
+            
+            doc.text(`Cliente: ${document.getElementById("cliente").value}`, 20, 30);
+            doc.text(`Fecha: ${document.getElementById("fecha").value}`, 20, 40);
+            
+            let y = 50;
+            document.querySelectorAll("#productos tr").forEach(fila => {
+                let nombre = fila.children[0].children[0].value;
+                let cantidad = fila.children[1].children[0].value;
+                let precio = fila.children[2].children[0].value;
+                let total = fila.children[4].textContent;
+                doc.text(`${nombre} - ${cantidad} x $${precio} = ${total}`, 20, y);
+                y += 10;
+            });
+            
+            doc.text(`Subtotal: ${document.getElementById("subtotal").textContent}`, 20, y + 10);
+            doc.text(`IVA: ${document.getElementById("iva").textContent}`, 20, y + 20);
+            doc.text(`Total: ${document.getElementById("total").textContent}`, 20, y + 30);
+            
+            doc.text("Notas:", 20, y + 40);
+            doc.text(document.getElementById("notas").value, 20, y + 50, { maxWidth: 170 });
+            
+            doc.save("cotizacion.pdf");
+        }
+    </script>
+</body>
+</html>
